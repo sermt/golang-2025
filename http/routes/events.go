@@ -77,17 +77,37 @@ func updateEvent(context *gin.Context) {
 		context.JSON(http.StatusBadRequest, gin.H{"error": "Invalid event ID"})
 		return
 	}
+
+	userID := context.GetInt64("userID") // del middleware
+
+	// Traes el evento existente
+	existingEvent, err := models.GetEventByID(id)
+	if err != nil {
+		context.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+		return
+	}
+
+	// Validas que el usuario autenticado sea el creador
+	if existingEvent.UserID != int(userID) {
+		context.JSON(http.StatusForbidden, gin.H{"error": "You do not have permission to update this event"})
+		return
+	}
+
 	var event models.Event
 	if err := context.ShouldBindJSON(&event); err != nil {
 		context.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
 	event.ID = int(id)
+	event.UserID = existingEvent.UserID
+
 	err = models.UpdateEventByID(event)
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{"error": "Could not update event"})
 		return
 	}
+
 	context.JSON(http.StatusOK, event)
 }
 
